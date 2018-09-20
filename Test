@@ -1,0 +1,402 @@
+<template lang="html">
+  <div class="documentsetup">
+    <b-card>
+      <div slot="header">
+        <strong>Document Setup </strong> 
+        <b-btn class="pull-right" variant="primary" v-show="!isAdd && !isEdit">
+          <i class="fa fa-plus"></i>&nbsp; <span>Add</span>
+        </b-btn>
+      </div>
+      <div>
+         <b-row>
+          <b-col v-bind:cols="(!isAdd && !isEdit)?12:6}">
+          </b-col>
+        </b-row>
+      </div>
+     
+    </b-card>
+  </div>
+</template>
+
+<script lang="js">
+  export default  {
+    name: 'document-setup',
+    props: [],
+    mounted() {
+
+    },
+    data() {
+      return {
+         isAdd: false,
+        isEdit: false,
+
+      }
+    },
+    methods: {
+
+    },
+    computed: {
+
+    }
+}
+</script>
+
+<style>
+</style>
+
+
+
+
+
+<template>
+    <v-container fluid grid-list-md pa-0 pl-4>
+      <v-layout elevation-4>
+        <v-flex :xs6="(isAdd || isEdit)" :xs12="(!isAdd && !isEdit)">
+          <v-toolbar mb-2 prominent color="blue">
+            <v-toolbar-title>Document Setup </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-btn v-show="!isAdd && !isEdit" @click="addDocument" icon>
+              <v-icon>add</v-icon>
+            </v-btn>
+            <v-btn v-show="isAdd || isEdit" @click="submit" icon>
+              <v-icon>save</v-icon>
+            </v-btn>
+            <v-btn v-show="isAdd || isEdit" @click.stop="copyDialog = true" icon>
+              <v-icon>file_copy</v-icon>
+            </v-btn>
+            <v-btn v-show="isEdit" icon>
+              <v-icon>delete</v-icon>
+            </v-btn>
+
+            <v-btn v-show="isAdd || isEdit" @click="clear" icon>
+              <v-icon>clear</v-icon>
+            </v-btn>
+          </v-toolbar>
+          <v-layout v-if="!isAdd && !isEdit">
+            <v-flex xs12>
+              <v-card>
+                <v-card-title>
+                  <v-spacer></v-spacer>
+                  <v-text-field v-model="search" append-icon="search" label="Search" single-line hide-details></v-text-field>
+                </v-card-title>
+                <v-data-table :headers="headers" :items="documents" :search="search">
+                  <template slot="items" slot-scope="props">
+                    <td>{{ props.item.code }}</td>
+                    <td>{{ props.item.type }}</td>
+                    <td>
+                      <v-btn @click="editDocument(props.item)" icon>
+                        <v-icon>edit</v-icon>
+                      </v-btn>
+                      <v-btn @click="deleteDocument(props.item)" icon>
+                        <v-icon>delete</v-icon>
+                      </v-btn>
+                    </td>
+                  </template>
+                  <v-alert slot="no-results" :value="true" color="error" icon="warning">
+                    Your search for "{{ search }}" found no results.
+                  </v-alert>
+                </v-data-table>
+              </v-card>
+            </v-flex>
+          </v-layout>
+          <v-layout v-if="isAdd || isEdit" row wrap>
+            <v-flex xs12>
+              <v-text-field box v-validate="'required'" v-model="document.code" :error-messages="errors.collect('code')" label="Code" data-vv-name="code" required></v-text-field>
+              <v-text-field box v-validate="'required'" v-model="document.type" :error-messages="errors.collect('type')" label="Type" data-vv-name="type" required></v-text-field>
+              <v-subheader>Meta Data</v-subheader>
+              <v-layout row v-for="(item,index) in document.metaDataSetups" :key="index" v-if="item.status != 'D'" class="sub-list">
+                  <v-flex xs4>
+                    <v-text-field box v-validate="'required'" v-model="item.key" :error-messages="errors.collect('key_' + index)" label="Key" data-vv-name="key" required></v-text-field>
+                  </v-flex>
+                  <v-flex xs4>
+                    <v-text-field box v-validate="'required'" v-model="item.value" :error-messages="errors.collect('value')" label="Value" data-vv-name="value" required></v-text-field>
+                  </v-flex>
+                  <v-flex xs4>
+                    <v-combobox box v-model="item.parent" :items="document.metaDataSetups.map(m => m.key)" label="Parent"></v-combobox>
+                  </v-flex>
+                  <v-flex xs4>
+                    <v-text-field box v-validate="'required'" v-model="item.format" :error-messages="errors.collect('format')" label="Format" data-vv-name="format" required></v-text-field>
+                  </v-flex>
+                  <v-flex xs4>
+                    <v-text-field box v-validate="'required'" v-model="item.extraction" :error-messages="errors.collect('extraction')" label="Extraction" data-vv-name="extraction" required></v-text-field>
+                  </v-flex>
+                    <v-flex xs4>
+                      <v-spacer></v-spacer>
+                  <v-fab-transition>
+                    <v-btn v-if="document.metaDataSetups.length > 1" @click="deleteMetadata(index)" color="pink" fab dark small relative bottom left>
+                      <v-icon>delete</v-icon>
+                    </v-btn>
+                  </v-fab-transition>
+                  <v-fab-transition>
+                    <v-btn @click="addMetadata(index)" v-if="(index + 1) == document.metaDataSetups.length" color="pink" fab dark small relative bottom left>
+                      <v-icon>add</v-icon>
+                    </v-btn>
+                  </v-fab-transition>
+                    </v-flex>
+              </v-layout>
+            </v-flex>
+          </v-layout>
+        </v-flex>
+        <v-flex xs6 v-if="(isAdd || isEdit)" style="position: relative">
+            <v-fab-transition>
+                    <v-btn v-show="hasFiles" @click="reloadFile" color="pink" fab dark small absolute top right>
+                      <v-icon>refresh</v-icon>
+                    </v-btn>
+                  </v-fab-transition>
+          <vue-dropzone v-show="!hasFiles" v-on:vdropzone-success="OnFileAdded"  ref="fileUploader" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
+          <canvas v-show="hasFiles" width="800" height="900" id="screen" resize></canvas>
+        </v-flex>
+      </v-layout>
+      <v-dialog v-model="copyDialog" max-width="500px">
+      <v-card>
+        <v-card-title>
+          Copy Document
+        </v-card-title>
+        <v-card-text>
+          <v-autocomplete @change="showMetadata" v-model="copyDocument" :items="documents" hide-no-data hide-selected item-text="code" return-object label="Search Documents" prepend-icon="filter_list"></v-autocomplete>
+          <v-data-table v-model="selected" item-key="key" select-all :headers="metaheaders" :items="copyMetadata" :search="search">
+            <template slot="items" slot-scope="props">
+              <td>
+                <v-checkbox v-model="props.selected" primary hide-details></v-checkbox>
+              </td>
+              <td>{{ props.item.key }}</td>
+              <td>{{ props.item.value }}</td>
+              <td>{{ props.item.format }}</td>
+              <td>{{ props.item.parent }}</td>
+              <td>{{ props.item.extraction }}</td>
+            </template>
+            <v-alert slot="no-results" :value="true" color="error" icon="warning">
+              Your search for "{{ search }}" found no results.
+            </v-alert>
+          </v-data-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-btn color="primary" flat @click.stop="copyDialog=false">Close</v-btn>
+          <v-btn color="primary" flat @click="copyMetadatatoDocument">Move to Document</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    </v-container>
+    
+</template>
+<style>
+.sub-list {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+.speed-dial-pos {
+  position: absolute;
+}
+</style>
+
+<script>
+import vue2Dropzone from "vue2-dropzone";
+import "vue2-dropzone/dist/vue2Dropzone.min.css";
+import * as paper from "paper";
+import projector from "@/assets/js/blackStraw.zoom.js";
+
+export default {
+  name: "DocumentSetup",
+  $_veeValidate: {
+    validator: "new"
+  },
+  components: {
+    vueDropzone: vue2Dropzone
+  },
+  data: () => ({
+    hasFiles: false,
+    dropzoneOptions: {
+      url: "https://httpbin.org/post",
+      thumbnailWidth: 150,
+      maxFilesize: 0.5,
+      headers: { fileUploader: "Document to setup" }
+    },
+    copyDialog: false,
+    copyDocument: {
+      metaDataSetups: []
+    },
+    selected: [],
+    metaheaders: [
+      {
+        text: "Key",
+        align: "center",
+        sortable: false,
+        value: "key"
+      },
+      {
+        text: "Value",
+        align: "center",
+        sortable: false,
+        value: "value"
+      },
+      {
+        text: "Format",
+        align: "center",
+        sortable: false,
+        value: "format"
+      },
+      {
+        text: "Parent",
+        align: "center",
+        sortable: false,
+        value: "parent"
+      },
+      {
+        text: "Extraction",
+        align: "center",
+        sortable: false,
+        value: "extraction"
+      }
+    ],
+    isAdd: false,
+    isEdit: false,
+    gradient: "to top, #7B1FA2, #E1BEE7",
+    search: "",
+    copyMetadata: [],
+    headers: [
+      {
+        text: "Document Name",
+        align: "left",
+        sortable: false,
+        value: "name"
+      },
+      {
+        text: "Document Type",
+        align: "left",
+        sortable: false,
+        value: "type"
+      },
+      {
+        text: "Actions",
+        align: "left",
+        sortable: false
+      }
+    ],
+    documents: [],
+    document: null
+  }),
+  created() {
+    this.$http.get("/api/documents/").then(response => {
+      this.documents = response.data;
+    });
+  },
+  mounted() {
+    this.$validator.localize("en", this.dictionary);
+  },
+  methods: {
+    reloadFile(){
+      this.hasFiles =  false;
+      this.$refs.fileUploader.removeAllFiles(true);
+    },
+    OnFileAdded(file) {
+      this.hasFiles = true;
+      var img = new Image();
+      img.src = file.dataURL;
+      img.onload = function() {
+        if (window.paper === undefined) {
+          paper.install(window);
+          paper.setup(document.getElementById("screen"));
+          project.clear();
+          new projector("screen", paper);
+        } else {
+          paper.project.activeLayer.removeChildren();
+          paper.view.draw();
+        }
+        var raster = new Raster(img);
+      };
+    },
+    copyMetadatatoDocument() {
+      this.selected.forEach(element => {
+        this.document.metaDataSetups.push(element);
+      });
+      this.copyDialog = false;
+    },
+    showMetadata() {
+      this.copyMetadata = this.copyDocument.metaDataSetups.map(m => {
+        return {
+          id: m.id,
+          key: m.key,
+          value: m.value,
+          parent: m.parent,
+          format: m.format,
+          extraction: m.extraction,
+          status: m.status
+        };
+      });
+    },
+    deleteDocument() {},
+    editDocument(item) {
+      this.isEdit = true;
+      this.document = item;
+    },
+    addDocument() {
+      this.isAdd = true;
+      this.isEdit = false;
+      this.document = {
+        code: "",
+        type: "",
+        metaDataSetups: [
+          {
+            key: "",
+            value: "",
+            parent: "",
+            format: "",
+            extraction: "",
+            status: "U"
+          }
+        ]
+      };
+    },
+    copy() {},
+    submit() {
+      this.$validator.validateAll().then(result => {
+        if (result) {
+          this.$http.post("/api/documents", this.document).then(response => {
+            if (response.data.success) {
+              this.clear();
+            }
+          });
+        }
+      });
+    },
+    addMetadata() {
+      this.document.metaDataSetups.push({
+        key: "",
+        value: "",
+        parent: "",
+        format: "",
+        extraction: "",
+        status: "A"
+      });
+    },
+    deleteMetadata(index) {
+      var toBeDeleted = this.document.metaDataSetups[index];
+      if (toBeDeleted.status === "A") {
+        this.document.metaDataSetups.splice(index, 1);
+      } else {
+        toBeDeleted[index].status = "D";
+      }
+    },
+    clear() {
+      this.document = {
+        id: "",
+        code: "",
+        type: "",
+        maxid: 1,
+        metaDataSetups: [
+          {
+            id: "",
+            key: "",
+            value: "",
+            parent: "",
+            format: "",
+            extraction: "",
+            status: "U"
+          }
+        ]
+      };
+      this.$validator.reset();
+    }
+  }
+};
+</script>
